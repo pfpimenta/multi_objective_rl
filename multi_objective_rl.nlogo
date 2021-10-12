@@ -1,4 +1,17 @@
-; n : size of the grid (n X n)
+; Parameters:
+; grid_size : size of the grid (grid_size X grid_size)
+; is_training : indicates if the current run is training (will update the agents Q-tables) or not
+; exploration_rate :
+
+; defining grid size (min and max x,y values in distance from the origin 0,0 )
+globals [
+  n
+  min_x
+  min_y
+  max_x
+  max_y
+]
+
 
 ; preys and predators are both breeds of turtles
 breed [ preys prey ]  ; preys is its own plural, so we use "a-preys" as the singular
@@ -10,6 +23,11 @@ predators-own [action]
 to setup
   clear-all
 
+  ; cast grid-size to number
+  set n read-from-string grid_size
+
+  setup-grid-size
+
   ; Check model-version switch
   create-preys 1  ; create the preys, then initialize their variables
   [
@@ -17,7 +35,7 @@ to setup
     set color white
     set size 1.5  ; easier to see
     set label-color blue - 2
-    setxy random-xcor random-ycor
+    set-random-coords
   ]
 
   create-predators 2  ; create the predators, then initialize their variables
@@ -25,11 +43,23 @@ to setup
     set shape "wolf"
     set color red
     set size 2  ; easier to see
-    let x-coordinate random n
-    let y-coordinate random n
-    setxy x-coordinate y-coordinate
+    set-random-coords
   ]
   reset-ticks
+end
+
+to set-random-coords
+  let x-coordinate random n
+  let y-coordinate random n
+  setxy x-coordinate y-coordinate
+end
+
+to setup-grid-size
+  set min_x 0 - (n / 2)
+  set min_y 0 - (n / 2)
+  set max_x (n / 2)
+  set max_y (n / 2)
+  resize-world min_x max_x min_y max_y
 end
 
 to go
@@ -50,10 +80,12 @@ to go
     move
   ]
 
+  ; update q-tables if in training mode
   if is_training
   [dont-move]  ; TODO atualiza q-tables
 
 
+  ; check if end condition was reached
   if check-end [
     stop
      user-message "A presa foi capturada"
@@ -76,6 +108,7 @@ end
 
 
 to choose-action-move-away-from-predators
+
   set action random 5 ; TODO mudar
 end
 
@@ -110,19 +143,31 @@ end
 ; 4 move-righ
 
 to move-up
-  set ycor ycor + 1
+  ; check if agent would move past the border
+  ifelse ycor > max_y - 1
+      [dont-move]
+      [set ycor ycor + 1]
 end
 
 to move-down
-  set ycor ycor - 1
+  ; check if agent would move past the border
+  ifelse ycor < min_y + 1
+      [dont-move]
+      [set ycor ycor - 1]
 end
 
 to move-left
-  set xcor xcor - 1
+  ; check if agent would move past the border
+  ifelse xcor < min_x + 1
+      [dont-move]
+      [set xcor xcor - 1]
 end
 
 to move-right
-  set xcor xcor + 1
+  ; check if agent would move past the border
+  ifelse ycor > max_y - 1
+      [dont-move]
+      [set xcor xcor + 1]
 end
 
 to dont-move
@@ -130,10 +175,10 @@ to dont-move
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-0
+230
 10
-688
-699
+462
+243
 -1
 -1
 13.33333333333334
@@ -146,10 +191,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--25
-25
--25
-25
+-8
+8
+-8
+8
 1
 1
 1
@@ -157,10 +202,10 @@ ticks
 30.0
 
 BUTTON
-545
-715
-614
-770
+20
+25
+89
+80
 setup
 setup
 NIL
@@ -174,10 +219,10 @@ NIL
 1
 
 BUTTON
-625
-715
-680
-770
+30
+90
+85
+145
 go
 go
 T
@@ -191,21 +236,21 @@ NIL
 0
 
 INPUTBOX
-55
-705
-150
-765
-n
-12
+20
+170
+115
+230
+grid_size
+16
 1
 0
 String
 
 SWITCH
-170
-720
-297
-753
+0
+255
+127
+288
 is_training
 is_training
 1
@@ -213,10 +258,10 @@ is_training
 -1000
 
 SLIDER
-315
-715
-512
-748
+0
+310
+197
+343
 exploration_rate
 exploration_rate
 0
