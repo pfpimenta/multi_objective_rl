@@ -108,8 +108,33 @@ end
 
 
 to choose-action-move-away-from-predators
+  ; compute on the values (distance from predators) of each action
+  let prey_x xcor
+  let prey_y ycor
+  ; value of moving up
+  let distance-list [distancexy prey_x (prey_y + 1)] of predators
+  let up-value reduce + distance-list
+  ; value of moving down
+  set distance-list [distancexy prey_x (prey_y - 1)] of predators
+  let down-value reduce + distance-list
+  ; value of moving left
+  set distance-list [distancexy (prey_x - 1) prey_y] of predators
+  let left-value reduce + distance-list
+  ; value of moving right
+  set distance-list [distancexy (prey_x + 1) prey_y] of predators
+  let right-value reduce + distance-list
+  ; value of not moving
+  set distance-list [distancexy prey_x prey_y] of predators
+  let dont-move-value reduce + distance-list
 
-  set action random 5 ; TODO mudar
+  ; choose action based on the values (summed distance from predators) of each action
+  set action 0 ; by default, dont move
+  let value n * n * n; just to declare the variable with a really big value
+  let values-list (list dont-move-value up-value down-value left-value right-value)
+  let max-value max values-list
+  let best-move position max-value values-list
+
+  set action best-move
 end
 
 
@@ -188,8 +213,8 @@ end
 GRAPHICS-WINDOW
 230
 10
-330
-111
+514
+295
 -1
 -1
 13.33333333333334
@@ -202,10 +227,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--3
-3
--3
-3
+-10
+10
+-10
+10
 1
 1
 1
@@ -252,7 +277,7 @@ INPUTBOX
 115
 230
 grid_size
-6
+20
 1
 0
 String
