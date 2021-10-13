@@ -130,8 +130,19 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; checks if end condition was reached
 to-report check-end
-  ; TODO
-  report False
+  let has_ended False
+  ask predators [
+    if any? preys with [abs (xcor - [xcor] of myself) < 1 and abs (ycor - [ycor] of myself) < 1]
+      [set has_ended True]
+  ]
+  report has_ended
+end
+
+; returns True if agent is in the same position as the coords passed by parameter
+to-report check-same-position [pos_x pos_y]
+  ifelse xcor = pos_x or ycor = pos_y
+      [report True]
+      [report False]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -165,7 +176,7 @@ end
 
 to move-right
   ; check if agent would move past the border
-  ifelse ycor > max_y - 1
+  ifelse xcor > max_x - 1
       [dont-move]
       [set xcor xcor + 1]
 end
@@ -177,8 +188,8 @@ end
 GRAPHICS-WINDOW
 230
 10
-462
-243
+330
+111
 -1
 -1
 13.33333333333334
@@ -191,10 +202,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--8
-8
--8
-8
+-3
+3
+-3
+3
 1
 1
 1
@@ -241,7 +252,7 @@ INPUTBOX
 115
 230
 grid_size
-16
+6
 1
 0
 String
