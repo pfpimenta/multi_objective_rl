@@ -1,7 +1,9 @@
 ; Parameters:
 ; grid_size : size of the grid (grid_size X grid_size)
-; is_training : indicates if the current run is training (will update the agents Q-tables) or not
+; max_steps_per_episode :
+; num_episodes :
 ; exploration_rate :
+; learning_algorithm :
 
 ; defining grid size (min and max x,y values in distance from the origin 0,0 )
 globals [
@@ -10,6 +12,8 @@ globals [
   min_y
   max_x
   max_y
+  is_training
+  was_captured ; True if the prey was captured in this step
 ]
 
 
@@ -18,9 +22,17 @@ breed [ preys prey ]  ; preys is its own plural, so we use "a-preys" as the sing
 breed [ predators predator ]
 
 preys-own [action ]
-predators-own [action]
+predators-own [
+  action
+  base-reward
+  reward-proximity-shaping
+  reward-angle-shaping
+  reward-separation-shaping
+  reward-linear-scalarization
+]
 
 to setup
+  print "\nenvironment setup."
   clear-all
 
   ; cast grid-size to number
@@ -63,7 +75,43 @@ to setup-grid-size
 end
 
 to go
+  print "\nStarting simulation..."
+  ; TODO : loopar 1000x simulation-step com is_training = True
+  set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
+  repeat num_episodes [simulation-episode]
 
+  ; TODO acho que nao precisa disso:
+;  set is_training False
+;  simulation-episode
+  stop
+end
+
+to simulation-episode
+  print "Starting episode..."
+  reset-positions
+  set was_captured False
+  reset-ticks
+;  repeat max_steps_per_episode [simulation-step]
+  loop [
+    if simulation-step [
+      type "...ended after " type ticks print " ticks with the prey captured. (predators won)"
+      stop
+    ]
+    if ticks = max_steps_per_episode [
+      type "...ended after " type ticks print " ticks without the prey captured. (prey won)"
+      stop
+    ]
+  ]
+end
+
+to reset-positions
+  ask preys
+    [set-random-coords]
+  ask predators
+    [set-random-coords]
+end
+
+to-report simulation-step
   ; choose actions
   ask preys [
     choose-action-prey
@@ -80,18 +128,23 @@ to go
     move
   ]
 
-  ; update q-tables if in training mode
-  if is_training
-  [dont-move]  ; TODO atualiza q-tables
-
-
   ; check if end condition was reached
-  if check-end [
-    stop
-     user-message "A presa foi capturada"
+  if check-end-condition [
+;    user-message "A presa foi capturada"
+;    print "A presa foi capturada"
+    set was_captured True
   ]
 
+  ask predators [
+    set-reward
+  ]
+
+  ; update q-tables if in training mode
+  if is_training
+    [update-q-table]  ; TODO atualiza q-tables
+
   tick
+  report was_captured
 end
 
 to choose-action-prey
@@ -102,10 +155,114 @@ end
 
 
 to choose-action-predator
-  ; TODO
-  set action random 5 ; TODO mudar
+  ifelse random-float 1 < (exploration_rate / 100)
+    [set action random 5] ; exploration
+;    [choice-action-predator-exploitation] ; exploitation
+    [choice-action-predator-hard-coded] ; exploitation
 end
 
+to choice-action-predator-exploitation
+
+  print "TODO escolher melhor acao da Q table"
+
+end
+
+
+to choice-action-predator-hard-coded
+  ; moves closer to the prey
+
+  ; compute on the values (distance from predators) of each action
+  let predator_x xcor
+  let predator_y ycor
+  ; value of moving up
+  let distance-list [distancexy predator_x (predator_y + 1)] of preys
+  let up-value reduce + distance-list
+  ; value of moving down
+  set distance-list [distancexy predator_x (predator_y - 1)] of preys
+  let down-value reduce + distance-list
+  ; value of moving left
+  set distance-list [distancexy (predator_x - 1) predator_y] of preys
+  let left-value reduce + distance-list
+  ; value of moving right
+  set distance-list [distancexy (predator_x + 1) predator_y] of preys
+  let right-value reduce + distance-list
+  ; value of not moving
+  set distance-list [distancexy predator_x predator_y] of preys
+  let dont-move-value reduce + distance-list
+
+  ; choose action based on the values (summed distance from predators) of each action
+  set action 0 ; by default, dont move
+  let value n * n * n; just to declare the variable with a really big value
+  let values-list (list dont-move-value up-value down-value left-value right-value)
+  let min-value min values-list
+  let best-move position min-value values-list
+
+  set action best-move
+end
+
+
+to set-reward
+  ask predators [
+  if was_captured [
+    set base-reward 1
+  ]
+    set reward-proximity-shaping proximity-shaping
+    set reward-angle-shaping angle-shaping
+    set reward-separation-shaping separation-shaping
+    set reward-linear-scalarization linear-scalarization-shaping
+  ]
+end
+
+to-report normalized-proximity-shaping
+  ; normalized proximity shaping value
+end
+
+to-report proximity-shaping
+  ; proximity shaping value (negative manhatan distance form prey)
+  let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of preys
+  let proximity_shaping (-1 * (reduce + dist-list))
+  report proximity_shaping
+end
+
+to-report normalized-angle-shaping
+  ; normalized angle shaping value
+end
+
+to-report angle-shaping
+  ; angle shaping value
+  ; arccos((vector-pred1-prey * vector-pred2-prey) / (abs(vector-pred1-prey)* abs(vector-pred2-prey)))
+;  let dist-pred1-prey-x [abs (xcor - [xcor] of myself)] of preys ; TODO mudar
+;  let dist-pred1-prey-y [abs (ycor - [ycor] of myself)] of preys ; TODO mudar
+;  let abs-vector-pred1-prey [sqrt((dist-pred1-prey-x * dist-pred1-prey-x) + (dist-pred1-prey-y * dist-pred1-prey-y))]
+;  let abs-vector-pred2-prey [sqrt((dist-pred2-prey-x * dist-pred2-prey-x) + (dist-pred2-prey-y * dist-pred2-prey-y))]
+;  report acos()
+  report 0
+end
+
+to-report normalized-separation-shaping
+  ; separation shaping value
+end
+
+to-report separation-shaping
+  ; normalized separation shaping value
+  let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of predators
+  let separation  (max dist-list)
+  report separation
+end
+
+to-report linear-scalarization-shaping
+  ; define shaping weights
+  let a 0.3
+  let b 0.3
+  let c 0.3
+  ; get shapings
+  let proximity proximity-shaping
+  let angle angle-shaping
+  let separation separation-shaping
+  ; aggregation with linear scalarization
+  let linear_scalarization (a * proximity + b * angle + c * separation)
+  report linear_scalarization
+end
 
 to choose-action-move-away-from-predators
   ; compute on the values (distance from predators) of each action
@@ -153,8 +310,29 @@ end
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
+to update-q-table
+  ; TODO
+  if learning_algorithm = "no shaping"
+    []
+  if learning_algorithm = "proximity shaping"
+    []
+  if learning_algorithm = "angle shaping"
+    []
+  if learning_algorithm = "separation shaping"
+    []
+  if learning_algorithm = "linear scalarization"
+    []
+  if learning_algorithm = "Majority Voting Ensemble"
+    []
+  if learning_algorithm = "Ranking Voting Ensemble"
+    []
+end
+
+; TODO funcao q usa a Q table
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; checks if end condition was reached
-to-report check-end
+to-report check-end-condition
   let has_ended False
   ask predators [
     if any? preys with [abs (xcor - [xcor] of myself) < 1 and abs (ycor - [ycor] of myself) < 1]
@@ -213,8 +391,8 @@ end
 GRAPHICS-WINDOW
 230
 10
-514
-295
+916
+697
 -1
 -1
 13.33333333333334
@@ -227,12 +405,12 @@ GRAPHICS-WINDOW
 1
 1
 1
--10
-10
--10
-10
-1
-1
+-25
+25
+-25
+25
+0
+0
 1
 ticks
 30.0
@@ -277,36 +455,57 @@ INPUTBOX
 115
 230
 grid_size
-20
+50
 1
 0
 String
 
-SWITCH
-0
-255
-127
-288
-is_training
-is_training
-1
-1
--1000
-
 SLIDER
-0
-310
-197
-343
+5
+385
+202
+418
 exploration_rate
 exploration_rate
 0
 100
-11.0
+49.0
 1
 1
 %
 HORIZONTAL
+
+CHOOSER
+5
+435
+205
+480
+learning_algorithm
+learning_algorithm
+"no shaping" "proximity shaping" "angle shaping" "separation shaping" "linear scalarization" "Majority Voting Ensemble" "Ranking Voting Ensemble"
+1
+
+INPUTBOX
+5
+240
+160
+300
+max_steps_per_episode
+100.0
+1
+0
+Number
+
+INPUTBOX
+10
+305
+167
+365
+num_episodes
+2.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
