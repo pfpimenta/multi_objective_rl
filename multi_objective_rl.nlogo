@@ -5,6 +5,9 @@
 ; exploration_rate :
 ; learning_algorithm :
 
+extensions [matrix]
+
+
 ; defining grid size (min and max x,y values in distance from the origin 0,0 )
 globals [
   n
@@ -29,6 +32,9 @@ predators-own [
   reward-angle-shaping
   reward-separation-shaping
   reward-linear-scalarization
+  ; TODO state
+  ; TODO last state
+  q-table
 ]
 
 to setup
@@ -56,6 +62,7 @@ to setup
     set color red
     set size 2  ; easier to see
     set-random-coords
+    set q-table init-q-table
   ]
   reset-ticks
 end
@@ -72,6 +79,19 @@ to setup-grid-size
   set max_x (n / 2)
   set max_y (n / 2)
   resize-world min_x max_x min_y max_y
+end
+
+to-report init-q-table
+  let n-rows num-states
+  let n-cols 5; num actions : do-nothing, move-up, move-down, move-left, move-right
+  let initialValue 0.01
+  let table (matrix:make-constant n-rows n-cols initialValue)
+  report table
+end
+
+to-report num-states
+  ; 21 possible distances (pred-2 and prey, x and y)
+  report 21 * 21 * 21 * 21
 end
 
 to go
@@ -126,12 +146,11 @@ to-report simulation-step
   ]
   ask predators [
     move
+    print q-table
   ]
 
   ; check if end condition was reached
   if check-end-condition [
-;    user-message "A presa foi capturada"
-;    print "A presa foi capturada"
     set was_captured True
   ]
 
@@ -215,6 +234,9 @@ end
 
 to-report normalized-proximity-shaping
   ; normalized proximity shaping value
+  let proximity proximity-shaping
+  let normalized-proximity (proximity / (2 * n))
+  report normalized-proximity
 end
 
 to-report proximity-shaping
@@ -226,25 +248,44 @@ end
 
 to-report normalized-angle-shaping
   ; normalized angle shaping value
+  let angle angle-shaping
+  let approximated-pi 3.14159265
+  let normalized-angle (angle / approximated-pi)
+  report normalized-angle
 end
 
 to-report angle-shaping
   ; angle shaping value
   ; arccos((vector-pred1-prey * vector-pred2-prey) / (abs(vector-pred1-prey)* abs(vector-pred2-prey)))
-;  let dist-pred1-prey-x [abs (xcor - [xcor] of myself)] of preys ; TODO mudar
-;  let dist-pred1-prey-y [abs (ycor - [ycor] of myself)] of preys ; TODO mudar
-;  let abs-vector-pred1-prey [sqrt((dist-pred1-prey-x * dist-pred1-prey-x) + (dist-pred1-prey-y * dist-pred1-prey-y))]
-;  let abs-vector-pred2-prey [sqrt((dist-pred2-prey-x * dist-pred2-prey-x) + (dist-pred2-prey-y * dist-pred2-prey-y))]
-;  report acos()
-  report 0
+  let pred1-x [xcor] of myself
+  let pred1-y [ycor] of myself
+  let pred2-x (reduce + ([xcor] of predators)) - pred1-x
+  let pred2-y (reduce + ([ycor] of predators)) - pred1-y
+  let prey-x reduce + ([xcor] of preys)
+  let prey-y reduce + ([ycor] of preys)
+  let dist-pred1-prey-x (abs prey-x - pred1-x)
+  let dist-pred1-prey-y (abs prey-y - pred1-y)
+  let dist-pred2-prey-x (abs prey-x - pred2-x)
+  let dist-pred2-prey-y (abs prey-y - pred2-y)
+  let abs-dist-pred1-prey (sqrt (dist-pred1-prey-x * dist-pred1-prey-x + dist-pred1-prey-y * dist-pred1-prey-y))
+  let abs-dist-pred2-prey (sqrt (dist-pred2-prey-x * dist-pred2-prey-x + dist-pred2-prey-y * dist-pred2-prey-y))
+  let vec-prod (dist-pred1-prey-x * dist-pred2-prey-x + dist-pred1-prey-y * dist-pred2-prey-y)
+  let angle 0
+  ifelse (abs-dist-pred1-prey * abs-dist-pred2-prey) = 0
+    [set angle 1]
+    [set angle (acos (vec-prod / (abs-dist-pred1-prey * abs-dist-pred2-prey)))]
+  report angle
 end
 
 to-report normalized-separation-shaping
-  ; separation shaping value
+  ; normalized separation shaping value
+  let separation separation-shaping
+  let normalized-separation (separation / (2 * n))
+  report normalized-separation
 end
 
 to-report separation-shaping
-  ; normalized separation shaping value
+  ;  separation shaping value
   let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of predators
   let separation  (max dist-list)
   report separation
@@ -391,8 +432,8 @@ end
 GRAPHICS-WINDOW
 230
 10
-916
-697
+650
+431
 -1
 -1
 13.33333333333334
@@ -405,10 +446,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--25
-25
--25
-25
+-15
+15
+-15
+15
 0
 0
 1
@@ -455,7 +496,7 @@ INPUTBOX
 115
 230
 grid_size
-50
+30
 1
 0
 String
@@ -469,7 +510,7 @@ exploration_rate
 exploration_rate
 0
 100
-49.0
+5.0
 1
 1
 %
