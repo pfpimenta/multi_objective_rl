@@ -5,8 +5,7 @@
 ; exploration_rate :
 ; learning_algorithm :
 
-extensions [matrix]
-
+extensions [matrix py]
 
 ; defining grid size (min and max x,y values in distance from the origin 0,0 )
 globals [
@@ -27,19 +26,18 @@ breed [ predators predator ]
 preys-own [action ]
 predators-own [
   action
-  base-reward
-  reward-proximity-shaping
-  reward-angle-shaping
-  reward-separation-shaping
-  reward-linear-scalarization
-  ; TODO state
-  ; TODO last state
+  reward
+  state
+  last-state
   q-table
 ]
 
 to setup
   print "\nenvironment setup."
   clear-all
+
+  py:setup py:python
+  py:run "import numpy as np"
 
   ; cast grid-size to number
   set n read-from-string grid_size
@@ -127,43 +125,41 @@ end
 to reset-positions
   ask preys
     [set-random-coords]
-  ask predators
-    [set-random-coords]
+  ask predators [set-random-coords]
+  ask predators [update-state]
 end
 
 to-report simulation-step
   ; choose actions
-  ask preys [
-    choose-action-prey
-  ]
-  ask predators [
-    choose-action-predator
-  ]
-
+  choose-actions
   ; execute actions
-  ask preys [
-    move
-  ]
-  ask predators [
-    move
-    print q-table
-  ]
-
+  execute-actions
   ; check if end condition was reached
-  if check-end-condition [
-    set was_captured True
-  ]
+  if check-end-condition
+    [set was_captured True]
 
-  ask predators [
-    set-reward
-  ]
+  ask predators [set-reward]
 
   ; update q-tables if in training mode
   if is_training
-    [update-q-table]  ; TODO atualiza q-tables
+    [ask predators [update-q-table]]
 
   tick
   report was_captured
+end
+
+to choose-actions
+  ask preys
+  [choose-action-prey]
+  ask predators
+  [choose-action-predator]
+end
+
+to execute-actions
+  ask preys
+  [move]
+  ask predators
+  [move]
 end
 
 to choose-action-prey
@@ -172,20 +168,39 @@ to choose-action-prey
     [choose-action-move-away-from-predators]
 end
 
-
 to choose-action-predator
   ifelse random-float 1 < (exploration_rate / 100)
     [set action random 5] ; exploration
-;    [choice-action-predator-exploitation] ; exploitation
-    [choice-action-predator-hard-coded] ; exploitation
+    [choice-action-predator-exploitation] ; exploitation
+;    [choice-action-predator-hard-coded] ; for debugging
 end
 
 to choice-action-predator-exploitation
-
-  print "TODO escolher melhor acao da Q table"
-
+  update-state
+  let current_row (matrix:get-row q-table state)
+  py:set "current_row" current_row
+  set action py:runresult "np.argmax(current_row)"
+  ; DEBUG
+  print current_row
+  print action
 end
 
+to update-state
+  set last-state state
+  let pred1-x xcor
+  let pred1-y ycor
+  let pred2-x (reduce + ([xcor] of predators)) - pred1-x
+  let pred2-y (reduce + ([ycor] of predators)) - pred1-y
+  let prey-x reduce + ([xcor] of preys)
+  let prey-y reduce + ([ycor] of preys)
+
+  ; compute state hash
+  let state-0 (abs (int (pred1-x - pred2-x)))
+  let state-1 (abs (int (pred1-y - pred2-y)))
+  let state-2 (abs (int (pred1-x - prey-x)))
+  let state-3 (abs (int (pred1-y - prey-y)))
+  set state (state-0 + (21 * state-1) + (21 * 21 * state-2) + (21 * 21 * 21 * state-3))
+end
 
 to choice-action-predator-hard-coded
   ; moves closer to the prey
@@ -219,17 +234,21 @@ to choice-action-predator-hard-coded
   set action best-move
 end
 
-
 to set-reward
+  let r 0
   ask predators [
-  if was_captured [
-    set base-reward 1
+    if was_captured
+    [set r (r + 1)]
+    if learning_algorithm = "proximity shaping"
+    [set r (r + proximity-shaping)]
+    if learning_algorithm = "angle shaping"
+    [set r (r + angle-shaping)]
+    if learning_algorithm = "separation shaping"
+    [set r (r + separation-shaping)]
+    if learning_algorithm = "linear scalarization"
+    [set r (r + linear-scalarization-shaping)]
   ]
-    set reward-proximity-shaping proximity-shaping
-    set reward-angle-shaping angle-shaping
-    set reward-separation-shaping separation-shaping
-    set reward-linear-scalarization linear-scalarization-shaping
-  ]
+  set reward r
 end
 
 to-report normalized-proximity-shaping
@@ -335,7 +354,6 @@ to choose-action-move-away-from-predators
   set action best-move
 end
 
-
 to move
   if action = 0
     [dont-move]
@@ -349,27 +367,31 @@ to move
     [move-right]
 end
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 to update-q-table
   ; TODO
-  if learning_algorithm = "no shaping"
-    []
-  if learning_algorithm = "proximity shaping"
-    []
-  if learning_algorithm = "angle shaping"
-    []
-  if learning_algorithm = "separation shaping"
-    []
-  if learning_algorithm = "linear scalarization"
-    []
-  if learning_algorithm = "Majority Voting Ensemble"
-    []
-  if learning_algorithm = "Ranking Voting Ensemble"
-    []
-end
+  let old-value (matrix:get q-table state action)
+  let current_row (matrix:get-row q-table state)
+  let optimal-future-value (max current_row)
+  let temporal_difference (reward + (discount_factor * optimal-future-value) - old-value)
+  let new-value (old-value + (learning_rate * temporal_difference))
+  matrix:set q-table state action new-value
 
-; TODO funcao q usa a Q table
+;  if learning_algorithm = "no shaping"
+;    []
+;  if learning_algorithm = "proximity shaping"
+;    []
+;  if learning_algorithm = "angle shaping"
+;    []
+;  if learning_algorithm = "separation shaping"
+;    []
+;  if learning_algorithm = "linear scalarization"
+;    []
+;  if learning_algorithm = "Majority Voting Ensemble"
+;    [] ; TODO
+;  if learning_algorithm = "Ranking Voting Ensemble"
+;    [] ; TODO
+end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; checks if end condition was reached
@@ -432,8 +454,8 @@ end
 GRAPHICS-WINDOW
 230
 10
-650
-431
+518
+299
 -1
 -1
 13.33333333333334
@@ -446,10 +468,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--15
-15
--15
-15
+-10
+10
+-10
+10
 0
 0
 1
@@ -496,7 +518,7 @@ INPUTBOX
 115
 230
 grid_size
-30
+20
 1
 0
 String
@@ -544,6 +566,28 @@ INPUTBOX
 365
 num_episodes
 2.0
+1
+0
+Number
+
+INPUTBOX
+10
+495
+100
+555
+learning_rate
+0.01
+1
+0
+Number
+
+INPUTBOX
+110
+495
+205
+555
+discount_factor
+0.95
 1
 0
 Number
