@@ -9,13 +9,14 @@ extensions [matrix py]
 
 ; defining grid size (min and max x,y values in distance from the origin 0,0 )
 globals [
-  n
   min_x
   min_y
   max_x
   max_y
   is_training
   was_captured ; True if the prey was captured in this step
+  ticks-per-episode
+  run-number
 ]
 
 
@@ -39,12 +40,12 @@ to setup
   py:setup py:python
   py:run "import numpy as np"
 
-  ; cast grid-size to number
-  set n read-from-string grid_size
-
   setup-grid-size
+  create-agents
+  reset-environment
+end
 
-  ; Check model-version switch
+to create-agents
   create-preys 1  ; create the preys, then initialize their variables
   [
     set shape "sheep"
@@ -62,20 +63,29 @@ to setup
     set-random-coords
     set q-table init-q-table
   ]
+end
+
+to reset-environment
+   ; cast grid-size to number
+  set was_captured False
+  set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
+
+  reset-positions
+
   reset-ticks
 end
 
 to set-random-coords
-  let x-coordinate random n
-  let y-coordinate random n
+  let x-coordinate random grid_size
+  let y-coordinate random grid_size
   setxy x-coordinate y-coordinate
 end
 
 to setup-grid-size
-  set min_x 0 - (n / 2)
-  set min_y 0 - (n / 2)
-  set max_x (n / 2)
-  set max_y (n / 2)
+  set min_x 0 - (grid_size / 2)
+  set min_y 0 - (grid_size / 2)
+  set max_x (grid_size / 2)
+  set max_y (grid_size / 2)
   resize-world min_x max_x min_y max_y
 end
 
@@ -96,25 +106,57 @@ to go
   print "\nStarting simulation..."
   ; TODO : loopar 1000x simulation-step com is_training = True
   set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
-  ; repeat num_episodes [simulation-episode]
-  run-episodes
+  run-runs
 
   ; TODO acho que nao precisa disso:
   ;  set is_training False
   ;  simulation-episode
+  print "\nEnd."
   stop
 end
 
+to run-runs
+  set run-number 0
+  loop [
+    reset-environment
+    set run-number (run-number + 1)
+    type "\nStarting run " type run-number print "..."
+    run-episodes
+    save-results
+    if run-number = number-of-runs [
+      stop
+    ]
+  ]
+end
+
 to run-episodes
-  let ticks-per-episode []
+  set ticks-per-episode []
   let episode-number 0
   loop [
     set episode-number (episode-number + 1)
     type "Starting episode " type episode-number print "..."
     simulation-episode
     set ticks-per-episode lput ticks ticks-per-episode
+    if episode-number = num_episodes [
+      print ticks-per-episode
+      stop
+    ]
   ]
-  print ticks-per-episode
+end
+
+to save-results
+  let ticks-filename (word "ticks_per_episode_" run-number ".txt")
+  file-open ticks-filename
+  file-write ticks-per-episode
+  file-close
+
+  let q-tables-filename (word "q-tables_" run-number ".txt")
+  file-open q-tables-filename
+  ask predators [
+    file-write "predator... "
+    file-write q-table
+  ]
+  file-close
 end
 
 to simulation-episode
@@ -146,8 +188,9 @@ to-report simulation-step
   ; execute actions
   execute-actions
   ; check if end condition was reached
-  if check-end-condition
+  ifelse check-end-condition
     [set was_captured True]
+    [set was_captured False]
 
   ask predators [set-reward]
 
@@ -203,10 +246,11 @@ to update-state
   let prey-y reduce + ([ycor] of preys)
 
   ; compute state hash
-  let state-0 min list (int (pred1-x - pred2-x + 20)) 20
-  let state-1 min list (int (pred1-y - pred2-y + 20)) 20
-  let state-2 min list (int (pred1-x - prey-x + 20)) 20
-  let state-3 min list (int (pred1-y - prey-y + 20)) 20
+  let state-0 min list (int (pred1-x - pred2-x + grid_size)) 20
+  let state-1 min list (int (pred1-y - pred2-y + grid_size)) 20
+  let state-2 min list (int (pred1-x - prey-x + grid_size)) 20
+  let state-3 min list (int (pred1-y - prey-y + grid_size)) 20
+;  type "debug state: " type state-0 type " " type state-1 type " " type state-2 type " " print state-3
   set state (state-0 + (21 * state-1) + (21 * 21 * state-2) + (21 * 21 * 21 * state-3))
 end
 
@@ -234,7 +278,7 @@ to choice-action-predator-hard-coded
 
   ; choose action based on the values (summed distance from predators) of each action
   set action 0 ; by default, dont move
-  let value n * n * n; just to declare the variable with a really big value
+  let value grid_size * grid_size * grid_size; just to declare the variable with a really big value
   let values-list (list dont-move-value up-value down-value left-value right-value)
   let min-value min values-list
   let best-move position min-value values-list
@@ -248,7 +292,8 @@ to set-reward
     if was_captured
     [set r (r + 1)]
     if learning_algorithm = "proximity shaping"
-    [set r (r + proximity-shaping)]
+    [set r (r + (shaping_factor * proximity-shaping))]
+;    [set r (r + proximity-shaping)]
     if learning_algorithm = "angle shaping"
     [set r (r + angle-shaping)]
     if learning_algorithm = "separation shaping"
@@ -264,7 +309,7 @@ to-report proximity-shaping
   let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of preys
   let proximity_shaping (-1 * (reduce + dist-list))
   if normalize_shapings [
-    report (proximity_shaping / (2 * n))
+    report (proximity_shaping / (2 * grid_size))
   ]
   report proximity_shaping
 end
@@ -301,7 +346,7 @@ to-report separation-shaping
   let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of predators
   let separation  (max dist-list)
   if normalize_shapings [
-    report (separation / (2 * n))
+    report (separation / (2 * grid_size))
   ]
   report separation
 end
@@ -342,7 +387,7 @@ to choose-action-move-away-from-predators
 
   ; choose action based on the values (summed distance from predators) of each action
   set action 0 ; by default, dont move
-  let value n * n * n; just to declare the variable with a really big value
+  let value grid_size * grid_size * grid_size; just to declare the variable with a really big value
   let values-list (list dont-move-value up-value down-value left-value right-value)
   let max-value max values-list
   let best-move position max-value values-list
@@ -447,13 +492,13 @@ to dont-move
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-230
+245
 10
-518
-299
+699
+465
 -1
 -1
-13.33333333333334
+21.24
 1
 14
 1
@@ -510,13 +555,13 @@ NIL
 INPUTBOX
 20
 95
-115
+177
 155
 grid_size
-20
+20.0
 1
 0
-String
+Number
 
 SLIDER
 20
@@ -527,7 +572,7 @@ exploration_rate
 exploration_rate
 0
 100
-20.0
+10.0
 1
 1
 %
@@ -560,7 +605,7 @@ INPUTBOX
 177
 285
 num_episodes
-1000.0
+10.0
 1
 0
 Number
@@ -594,9 +639,31 @@ SWITCH
 478
 normalize_shapings
 normalize_shapings
-1
+0
 1
 -1000
+
+INPUTBOX
+20
+485
+177
+545
+shaping_factor
+0.5
+1
+0
+Number
+
+INPUTBOX
+25
+555
+115
+615
+number-of-runs
+10.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
