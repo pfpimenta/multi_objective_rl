@@ -608,7 +608,7 @@ INPUTBOX
 175
 220
 max_steps_per_episode
-500.0
+5000.0
 1
 0
 Number
@@ -619,7 +619,7 @@ INPUTBOX
 215
 285
 num_episodes
-10.0
+1000.0
 1
 0
 Number
@@ -674,7 +674,7 @@ INPUTBOX
 110
 285
 number-of-runs
-5.0
+100.0
 1
 0
 Number
