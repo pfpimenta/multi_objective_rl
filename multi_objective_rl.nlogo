@@ -159,12 +159,15 @@ to run-episodes
 end
 
 to save-results
+
   let ticks-filename (word "outputs/ticks_per_episode/ticks_per_episode_" run-number ".txt")
+  type "Saving " type ticks-filename print "..."
   file-open ticks-filename
   file-write ticks-per-episode
   file-close
 
   let q-tables-filename (word "outputs/q_tables/q_tables_" run-number ".txt")
+  type "Saving " type q-tables-filename print "..."
   file-open q-tables-filename
   ask predators [
     file-write "predator... "
@@ -608,7 +611,7 @@ INPUTBOX
 175
 220
 max_steps_per_episode
-5000.0
+5.0
 1
 0
 Number
@@ -619,7 +622,7 @@ INPUTBOX
 215
 285
 num_episodes
-1000.0
+2.0
 1
 0
 Number
@@ -674,7 +677,7 @@ INPUTBOX
 110
 285
 number-of-runs
-100.0
+2.0
 1
 0
 Number
