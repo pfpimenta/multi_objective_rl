@@ -96,20 +96,31 @@ to go
   print "\nStarting simulation..."
   ; TODO : loopar 1000x simulation-step com is_training = True
   set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
-  repeat num_episodes [simulation-episode]
+  ; repeat num_episodes [simulation-episode]
+  run-episodes
 
   ; TODO acho que nao precisa disso:
-;  set is_training False
-;  simulation-episode
+  ;  set is_training False
+  ;  simulation-episode
   stop
 end
 
+to run-episodes
+  let ticks-per-episode []
+  let episode-number 0
+  loop [
+    set episode-number (episode-number + 1)
+    type "Starting episode " type episode-number print "..."
+    simulation-episode
+    set ticks-per-episode lput ticks ticks-per-episode
+  ]
+  print ticks-per-episode
+end
+
 to simulation-episode
-  print "Starting episode..."
   reset-positions
   set was_captured False
   reset-ticks
-;  repeat max_steps_per_episode [simulation-step]
   loop [
     if simulation-step [
       type "...ended after " type ticks print " ticks with the prey captured. (predators won)"
@@ -180,9 +191,6 @@ to choice-action-predator-exploitation
   let current_row (matrix:get-row q-table state)
   py:set "current_row" current_row
   set action py:runresult "np.argmax(current_row)"
-  ; DEBUG
-  print current_row
-  print action
 end
 
 to update-state
@@ -195,10 +203,10 @@ to update-state
   let prey-y reduce + ([ycor] of preys)
 
   ; compute state hash
-  let state-0 (abs (int (pred1-x - pred2-x)))
-  let state-1 (abs (int (pred1-y - pred2-y)))
-  let state-2 (abs (int (pred1-x - prey-x)))
-  let state-3 (abs (int (pred1-y - prey-y)))
+  let state-0 min list (int (pred1-x - pred2-x + 20)) 20
+  let state-1 min list (int (pred1-y - pred2-y + 20)) 20
+  let state-2 min list (int (pred1-x - prey-x + 20)) 20
+  let state-3 min list (int (pred1-y - prey-y + 20)) 20
   set state (state-0 + (21 * state-1) + (21 * 21 * state-2) + (21 * 21 * 21 * state-3))
 end
 
@@ -251,26 +259,14 @@ to set-reward
   set reward r
 end
 
-to-report normalized-proximity-shaping
-  ; normalized proximity shaping value
-  let proximity proximity-shaping
-  let normalized-proximity (proximity / (2 * n))
-  report normalized-proximity
-end
-
 to-report proximity-shaping
   ; proximity shaping value (negative manhatan distance form prey)
   let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of preys
   let proximity_shaping (-1 * (reduce + dist-list))
+  if normalize_shapings [
+    report (proximity_shaping / (2 * n))
+  ]
   report proximity_shaping
-end
-
-to-report normalized-angle-shaping
-  ; normalized angle shaping value
-  let angle angle-shaping
-  let approximated-pi 3.14159265
-  let normalized-angle (angle / approximated-pi)
-  report normalized-angle
 end
 
 to-report angle-shaping
@@ -293,20 +289,20 @@ to-report angle-shaping
   ifelse (abs-dist-pred1-prey * abs-dist-pred2-prey) = 0
     [set angle 1]
     [set angle (acos (vec-prod / (abs-dist-pred1-prey * abs-dist-pred2-prey)))]
+  if normalize_shapings [
+    let approximated-pi 3.14159265
+    report (angle / approximated-pi)
+  ]
   report angle
-end
-
-to-report normalized-separation-shaping
-  ; normalized separation shaping value
-  let separation separation-shaping
-  let normalized-separation (separation / (2 * n))
-  report normalized-separation
 end
 
 to-report separation-shaping
   ;  separation shaping value
   let dist-list [abs (xcor - [xcor] of myself) + abs (ycor - [ycor] of myself)] of predators
   let separation  (max dist-list)
+  if normalize_shapings [
+    report (separation / (2 * n))
+  ]
   report separation
 end
 
@@ -369,7 +365,6 @@ end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 to update-q-table
-  ; TODO
   let old-value (matrix:get q-table state action)
   let current_row (matrix:get-row q-table state)
   let optimal-future-value (max current_row)
@@ -496,10 +491,10 @@ NIL
 1
 
 BUTTON
-30
-90
-85
-145
+105
+25
+160
+80
 go
 go
 T
@@ -514,9 +509,9 @@ NIL
 
 INPUTBOX
 20
-170
+95
 115
-230
+155
 grid_size
 20
 1
@@ -524,73 +519,84 @@ grid_size
 String
 
 SLIDER
-5
-385
-202
-418
+20
+290
+217
+323
 exploration_rate
 exploration_rate
 0
 100
-5.0
+20.0
 1
 1
 %
 HORIZONTAL
 
 CHOOSER
-5
-435
-205
-480
+20
+395
+220
+440
 learning_algorithm
 learning_algorithm
 "no shaping" "proximity shaping" "angle shaping" "separation shaping" "linear scalarization" "Majority Voting Ensemble" "Ranking Voting Ensemble"
 1
 
 INPUTBOX
-5
-240
+20
 160
-300
+175
+220
 max_steps_per_episode
-100.0
+5000.0
 1
 0
 Number
 
 INPUTBOX
-10
-305
-167
-365
+20
+225
+177
+285
 num_episodes
-2.0
+1000.0
 1
 0
 Number
 
 INPUTBOX
-10
-495
-100
-555
-learning_rate
-0.01
-1
-0
-Number
-
-INPUTBOX
+20
+330
 110
-495
-205
-555
-discount_factor
-0.95
+390
+learning_rate
+0.005
 1
 0
 Number
+
+INPUTBOX
+120
+330
+215
+390
+discount_factor
+0.92
+1
+0
+Number
+
+SWITCH
+20
+445
+217
+478
+normalize_shapings
+normalize_shapings
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
