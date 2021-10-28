@@ -42,10 +42,18 @@ to setup
 
   setup-grid-size
   create-agents
-  reset-environment
+  set was_captured False
+  set is_training True
+  ask predators [update-state]
+  reset-ticks
 end
 
 to create-agents
+
+  ; remove old predators and prey
+  ask turtles
+  [die]
+
   create-preys 1  ; create the preys, then initialize their variables
   [
     set shape "sheep"
@@ -65,13 +73,19 @@ to create-agents
   ]
 end
 
-to reset-environment
-   ; cast grid-size to number
+; to be called before a new run begins
+to reset-run
+  create-agents
   set was_captured False
-  set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
+  set is_training True
+  ask predators [update-state]
+end
 
+; to be called before a new episode begins
+to reset-episode
+  set was_captured False
+  set is_training True
   reset-positions
-
   reset-ticks
 end
 
@@ -118,7 +132,7 @@ end
 to run-runs
   set run-number 0
   loop [
-    reset-environment
+    reset-run
     set run-number (run-number + 1)
     type "\nStarting run " type run-number print "..."
     run-episodes
@@ -145,12 +159,12 @@ to run-episodes
 end
 
 to save-results
-  let ticks-filename (word "ticks_per_episode_" run-number ".txt")
+  let ticks-filename (word "outputs/ticks_per_episode/ticks_per_episode_" run-number ".txt")
   file-open ticks-filename
   file-write ticks-per-episode
   file-close
 
-  let q-tables-filename (word "q-tables_" run-number ".txt")
+  let q-tables-filename (word "outputs/q_tables/q_tables_" run-number ".txt")
   file-open q-tables-filename
   ask predators [
     file-write "predator... "
@@ -594,15 +608,15 @@ INPUTBOX
 175
 220
 max_steps_per_episode
-5000.0
+500.0
 1
 0
 Number
 
 INPUTBOX
-20
+120
 225
-177
+215
 285
 num_episodes
 10.0
@@ -655,12 +669,12 @@ shaping_factor
 Number
 
 INPUTBOX
-25
-555
-115
-615
+20
+225
+110
+285
 number-of-runs
-10.0
+5.0
 1
 0
 Number
