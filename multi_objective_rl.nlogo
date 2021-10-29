@@ -112,8 +112,9 @@ to-report init-q-table
 end
 
 to-report num-states
-  ; 21 possible distances (pred-2 and prey, x and y)
-  report 21 * 21 * 21 * 21
+  ; max_dist_plus_one possible distances (pred-2 and prey, x and y), counting with 0
+  let max_dist_plus_one (max_dist + 1)
+  report max_dist_plus_one  * max_dist_plus_one  * max_dist_plus_one  * max_dist_plus_one
 end
 
 to go
@@ -263,12 +264,13 @@ to update-state
   let prey-y reduce + ([ycor] of preys)
 
   ; compute state hash
-  let state-0 min list (int (pred1-x - pred2-x + grid_size)) 20
-  let state-1 min list (int (pred1-y - pred2-y + grid_size)) 20
-  let state-2 min list (int (pred1-x - prey-x + grid_size)) 20
-  let state-3 min list (int (pred1-y - prey-y + grid_size)) 20
+  let state-0 min list (int (pred1-x - pred2-x + grid_size)) max_dist
+  let state-1 min list (int (pred1-y - pred2-y + grid_size)) max_dist
+  let state-2 min list (int (pred1-x - prey-x + grid_size)) max_dist
+  let state-3 min list (int (pred1-y - prey-y + grid_size)) max_dist
 ;  type "debug state: " type state-0 type " " type state-1 type " " type state-2 type " " print state-3
-  set state (state-0 + (21 * state-1) + (21 * 21 * state-2) + (21 * 21 * 21 * state-3))
+  let max_dist_plus_one (max_dist + 1)
+  set state (state-0 + (max_dist_plus_one  * state-1) + (max_dist_plus_one  * max_dist_plus_one  * state-2) + (max_dist_plus_one  * max_dist_plus_one  * max_dist_plus_one  * state-3))
 end
 
 to choice-action-predator-hard-coded
@@ -349,8 +351,11 @@ to-report angle-shaping
   let vec-prod (dist-pred1-prey-x * dist-pred2-prey-x + dist-pred1-prey-y * dist-pred2-prey-y)
   let angle 0
   ifelse (abs-dist-pred1-prey * abs-dist-pred2-prey) = 0
-    [set angle 1]
-    [set angle (acos (vec-prod / (abs-dist-pred1-prey * abs-dist-pred2-prey)))]
+  [set angle 1]
+  [
+    let acos-param (vec-prod / (abs-dist-pred1-prey * abs-dist-pred2-prey))
+    set angle (acos (max (list -1 (min (list 1 acos-param)))))
+  ]
   if normalize_shapings [
     let approximated-pi 3.14159265
     report (angle / approximated-pi)
@@ -529,8 +534,8 @@ GRAPHICS-WINDOW
 10
 -10
 10
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -603,7 +608,7 @@ CHOOSER
 learning_algorithm
 learning_algorithm
 "no shaping" "proximity shaping" "angle shaping" "separation shaping" "linear scalarization" "Majority Voting Ensemble" "Ranking Voting Ensemble"
-1
+0
 
 INPUTBOX
 20
@@ -611,7 +616,7 @@ INPUTBOX
 175
 220
 max_steps_per_episode
-5.0
+5000.0
 1
 0
 Number
@@ -622,7 +627,7 @@ INPUTBOX
 215
 285
 num_episodes
-2.0
+2000.0
 1
 0
 Number
@@ -663,7 +668,7 @@ normalize_shapings
 INPUTBOX
 20
 485
-177
+115
 545
 shaping_factor
 0.5
@@ -677,7 +682,18 @@ INPUTBOX
 110
 285
 number-of-runs
-2.0
+5.0
+1
+0
+Number
+
+INPUTBOX
+140
+485
+215
+545
+max_dist
+10.0
 1
 0
 Number
