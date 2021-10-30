@@ -27,16 +27,11 @@ breed [ predators predator ]
 preys-own [action ]
 predators-own [
   action
-  reward-proximity
-  reward-angle
-  reward-separation
+  reward
   state
   last-state
-  q-table-proximity
-  q-table-angle
-  q-table-separation
+  q-table
 ]
-
 
 to setup
   print "\nenvironment setup."
@@ -44,7 +39,6 @@ to setup
 
   py:setup py:python
   py:run "import numpy as np"
-  py:run "from ensemble_functions import majority_voting, ranking_voting"
 
   setup-grid-size
   create-agents
@@ -75,10 +69,7 @@ to create-agents
     set color red
     set size 2  ; easier to see
     set-random-coords
-
-    set q-table-proximity init-q-table
-    set q-table-angle init-q-table
-    set q-table-separation init-q-table
+    set q-table init-q-table
   ]
 end
 
@@ -173,22 +164,18 @@ end
 
 to save-results
 
-  let ticks-filename (word "outputs/" ensemble_algorithm "/ticks_per_episode/ticks_per_episode_" run-number ".txt")
+  let ticks-filename (word "outputs/" learning_algorithm "/ticks_per_episode/ticks_per_episode_" run-number ".txt")
   type "Saving " type ticks-filename print "..."
   file-open ticks-filename
   file-write ticks-per-episode
   file-close
 
-  let q-tables-filename (word "outputs/" ensemble_algorithm "/q_tables/q_tables_" run-number ".txt")
+  let q-tables-filename (word "outputs/" learning_algorithm "/q_tables/q_tables_" run-number ".txt")
   type "Saving " type q-tables-filename print "..."
   file-open q-tables-filename
   ask predators [
-    file-write "predator q-table-proximity... "
-    file-write q-table-proximity
-    file-write "predator q-table-angle... "
-    file-write q-table-angle
-    file-write "predator q-table-separation... "
-    file-write q-table-separation
+    file-write "predator... "
+    file-write q-table
   ]
   file-close
 end
@@ -230,7 +217,7 @@ to-report simulation-step
 
   ; update q-tables if in training mode
   if is_training
-    [ask predators [update-q-tables]]
+    [ask predators [update-q-table]]
 
   tick
   report was_captured
@@ -263,25 +250,11 @@ to choose-action-predator
 ;    [choice-action-predator-hard-coded] ; for debugging
 end
 
-
 to choice-action-predator-exploitation
-  ; TODO
   update-state
-  let current-row-proximity (matrix:get-row q-table-proximity state)
-  py:set "row_proximity" current-row-proximity
-  let current-row-angle (matrix:get-row q-table-angle state)
-  py:set "row_angle" current-row-angle
-  let current-row-separation (matrix:get-row q-table-separation state)
-  py:set "row_separation" current-row-separation
-
-  if ensemble_algorithm = "majority_voting_ensemble"
-  [
-    set action py:runresult "majority_voting(row_proximity, row_angle, row_separation)"
-  ]
-  if ensemble_algorithm = "ranking_voting_ensemble"
-  [
-    set action py:runresult "ranking_voting(row_proximity, row_angle, row_separation)"
-  ]
+  let current_row (matrix:get-row q-table state)
+  py:set "current_row" current_row
+  set action py:runresult "np.argmax(current_row)"
 end
 
 to update-state
@@ -336,13 +309,19 @@ to choice-action-predator-hard-coded
 end
 
 to set-reward
-  let base-reward 0
+  let r 0
   if was_captured
-  [set base-reward (base-reward + 1)]
-
-  set reward-proximity (base-reward + proximity-shaping)
-  set reward-angle (base-reward + angle-shaping)
-  set reward-separation (base-reward + separation-shaping)
+  [set r (r + 1)]
+  if learning_algorithm = "proximity_shaping"
+  [set r (r + (shaping_factor * proximity-shaping))]
+;    [set r (r + proximity-shaping)]
+  if learning_algorithm = "angle_shaping"
+  [set r (r + angle-shaping)]
+  if learning_algorithm = "separation_shaping"
+  [set r (r + separation-shaping)]
+  if learning_algorithm = "linear_scalarization"
+  [set r (r + linear-scalarization-shaping)]
+  set reward r
 end
 
 to-report proximity-shaping
@@ -453,37 +432,13 @@ to move
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
-to update-q-tables
-  update-q-table-proximity
-  update-q-table-angle
-  update-q-table-separation
-end
-
-to update-q-table-proximity
-  let old-value (matrix:get q-table-proximity last-state action)
-  let current_row (matrix:get-row q-table-proximity state)
+to update-q-table
+  let old-value (matrix:get q-table last-state action)
+  let current_row (matrix:get-row q-table state)
   let optimal-future-value (max current_row)
-  let temporal_difference (reward-proximity + (discount_factor * optimal-future-value) - old-value)
+  let temporal_difference (reward + (discount_factor * optimal-future-value) - old-value)
   let new-value (old-value + (learning_rate * temporal_difference))
-  matrix:set q-table-proximity last-state action new-value
-end
-
-to update-q-table-angle
-  let old-value (matrix:get q-table-angle last-state action)
-  let current_row (matrix:get-row q-table-angle state)
-  let optimal-future-value (max current_row)
-  let temporal_difference (reward-angle + (discount_factor * optimal-future-value) - old-value)
-  let new-value (old-value + (learning_rate * temporal_difference))
-  matrix:set q-table-angle last-state action new-value
-end
-
-to update-q-table-separation
-  let old-value (matrix:get q-table-separation last-state action)
-  let current_row (matrix:get-row q-table-separation state)
-  let optimal-future-value (max current_row)
-  let temporal_difference (reward-separation + (discount_factor * optimal-future-value) - old-value)
-  let new-value (old-value + (learning_rate * temporal_difference))
-  matrix:set q-table-separation last-state action new-value
+  matrix:set q-table last-state action new-value
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -545,9 +500,9 @@ to dont-move
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-240
+245
 10
-694
+699
 465
 -1
 -1
@@ -634,11 +589,11 @@ HORIZONTAL
 CHOOSER
 20
 395
-215
+220
 440
-ensemble_algorithm
-ensemble_algorithm
-"majority_voting_ensemble" "ranking_voting_ensemble"
+learning_algorithm
+learning_algorithm
+"no_shaping" "proximity_shaping" "angle_shaping" "separation_shaping" "linear_scalarization"
 0
 
 INPUTBOX
@@ -680,7 +635,7 @@ INPUTBOX
 215
 390
 discount_factor
-0.995
+0.99
 1
 0
 Number
@@ -717,23 +672,6 @@ number-of-runs
 1
 0
 Number
-
-BUTTON
-345
-565
-432
-598
-debug1
-debug1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?
