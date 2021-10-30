@@ -27,7 +27,20 @@ def print_performance(ticks_per_episode: np.array, last_n_episodes: Optional[int
 	cumulative_ticks = np.sum(ticks_per_episode, axis=1)
 	cumulative_ticks_mean = np.mean(cumulative_ticks)
 	cumulative_ticks_std = np.std(cumulative_ticks)
-	print(f"Performance: {cumulative_ticks_mean}+-{cumulative_ticks_std}")
+	print(f"Total ticks (cumulative): {cumulative_ticks_mean}+-{cumulative_ticks_std}")
+	average_ticks_mean = np.mean(ticks_per_episode)
+	average_ticks_std = np.std(ticks_per_episode)
+	print(f"Average ticks per episode: {average_ticks_mean}+-{average_ticks_std}")
+
+def print_performance_report(ticks_per_episode):
+	num_episodes = ticks_per_episode.shape[1]
+	print("\nConsidering all episodes:")
+	print_performance(ticks_per_episode)
+	print(f"\nConsidering the last {int(num_episodes/10)} episodes:")
+	print_performance(ticks_per_episode, last_n_episodes=int(num_episodes/10))
+	print(f"\nConsidering only the last episode:")
+	print_performance(ticks_per_episode, last_n_episodes=1)
+
 
 def show_graph(ticks_per_episode: np.array, smooth_factor: int = None):
 	mean_ticks_per_episode = np.mean(ticks_per_episode, axis=0)
@@ -46,15 +59,12 @@ def show_graph(ticks_per_episode: np.array, smooth_factor: int = None):
 
 if(__name__ == '__main__'):
 	# load ticks_per_episode from output folder
-	# output_folder_path = "outputs"
-	output_folder_path = "outputs_normprox_5runs_2000eps_5000steps_lr0_005_df0_92_sf_0_5"
+	output_folder_path = "outputs"
+	# output_folder_path = "outputs_normprox_5runs_2000eps_5000steps_lr0_005_df0_92_sf_0_5"
 	ticks_per_episode = load_ticks_per_episode(output_folder_path)
 
 	# print performance
-	num_episodes = ticks_per_episode.shape[1]
-	print_performance(ticks_per_episode)
-	print_performance(ticks_per_episode, last_n_episodes=int(num_episodes/10))
-	print_performance(ticks_per_episode, last_n_episodes=1)
+	print_performance_report(ticks_per_episode)
 
 	# show graph
 	avg_ticks_per_episode = np.mean(ticks_per_episode, axis=0)
