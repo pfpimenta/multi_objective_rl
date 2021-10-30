@@ -10,6 +10,8 @@ def moving_average(array: np.array, window_size: int):
 def load_ticks_per_episode(output_folder_path: str) -> np.array:
 	ticks_per_episode_folder_path = output_folder_path + "/ticks_per_episode/"
 	filename_list = [filename for filename in os.listdir(ticks_per_episode_folder_path) if filename[-4:] == ".txt"]
+	if len(filename_list) == 0:
+		return None
 	ticks_per_episode = []
 	for filename in filename_list:
 		filepath = ticks_per_episode_folder_path + filename
@@ -42,7 +44,7 @@ def print_performance_report(ticks_per_episode):
 	print_performance(ticks_per_episode, last_n_episodes=1)
 
 
-def show_graph(ticks_per_episode: np.array, smooth_factor: int = None):
+def show_graph(ticks_per_episode: np.array, smooth_factor: int = None, graph_png_path: str = False):
 	mean_ticks_per_episode = np.mean(ticks_per_episode, axis=0)
 	if smooth_factor is None:
 		y = mean_ticks_per_episode
@@ -54,19 +56,57 @@ def show_graph(ticks_per_episode: np.array, smooth_factor: int = None):
 	plt.title('ticks per episode')
 	plt.xlabel('episode')
 	plt.ylabel('ticks')
-	plt.show()
+	if(graph_png_path is not None):
+		plt.savefig(graph_png_path)
+	else:
+		# just show graph at scren
+		plt.show()
+
+def full_perfomance_report(learning_algorithm: str, save_graph_png: bool = True):
+	output_folder_path = "outputs/" + learning_algorithm
+	ticks_per_episode = load_ticks_per_episode(output_folder_path)
+	if ticks_per_episode is not None:
+		# print performance
+		print(f"\nPerformance for {learning_algorithm}...")
+		print_performance_report(ticks_per_episode)
+
+		# save graph
+		if save_graph_png is True:
+			graph_png_path = output_folder_path + "/graph.png"
+		show_graph(ticks_per_episode, smooth_factor=30, graph_png_path=graph_png_path)
+	else:
+		print(f"\nResults not found for {learning_algorithm} !")
+		
 
 
 if(__name__ == '__main__'):
+	alg_list = [
+		"no_shaping",
+		"proximity_shaping",
+		"angle_shaping",
+		"angle_shaping",
+		"separation_shaping",
+		"linear_scalarization",
+		"majority_voting_ensemble",
+		"ranking_voting_ensemble",
+	]
+
+	for learning_algorithm in alg_list:
+		full_perfomance_report(learning_algorithm)
+
 	# load ticks_per_episode from output folder
-	output_folder_path = "outputs"
-	# output_folder_path = "outputs_normprox_5runs_2000eps_5000steps_lr0_005_df0_92_sf_0_5"
-	ticks_per_episode = load_ticks_per_episode(output_folder_path)
+	# output_folder_path = "outputs"
+	#output_folder_path = "outputs/no_shaping"
+	# output_folder_path = "outputs/proximity_shaping"
+	# output_folder_path = "outputs/angle_shaping"
+	# output_folder_path = "outputs/separation_shaping"
+	# output_folder_path = "outputs/linear_scalarization"
+	# # output_folder_path = "outputs_normprox_5runs_2000eps_5000steps_lr0_005_df0_92_sf_0_5"
+	# ticks_per_episode = load_ticks_per_episode(output_folder_path)
 
-	# print performance
-	print_performance_report(ticks_per_episode)
+	# # print performance
+	# print_performance_report(ticks_per_episode)
 
-	# show graph
-	avg_ticks_per_episode = np.mean(ticks_per_episode, axis=0)
-	# show_graph(ticks_per_episode)
-	show_graph(ticks_per_episode, smooth_factor=30)
+	# # show graph
+	# # show_graph(ticks_per_episode)
+	# show_graph(ticks_per_episode, smooth_factor=30)
