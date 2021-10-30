@@ -337,8 +337,8 @@ end
 to-report angle-shaping
   ; angle shaping value
   ; arccos((vector-pred1-prey * vector-pred2-prey) / (abs(vector-pred1-prey)* abs(vector-pred2-prey)))
-  let pred1-x [xcor] of myself
-  let pred1-y [ycor] of myself
+  let pred1-x xcor
+  let pred1-y ycor
   let pred2-x (reduce + ([xcor] of predators)) - pred1-x
   let pred2-y (reduce + ([ycor] of predators)) - pred1-y
   let prey-x reduce + ([xcor] of preys)
@@ -594,7 +594,7 @@ CHOOSER
 learning_algorithm
 learning_algorithm
 "no_shaping" "proximity_shaping" "angle_shaping" "separation_shaping" "linear_scalarization"
-0
+2
 
 INPUTBOX
 20

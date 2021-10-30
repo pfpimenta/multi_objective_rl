@@ -263,9 +263,7 @@ to choose-action-predator
 ;    [choice-action-predator-hard-coded] ; for debugging
 end
 
-
 to choice-action-predator-exploitation
-  ; TODO
   update-state
   let current-row-proximity (matrix:get-row q-table-proximity state)
   py:set "row_proximity" current-row-proximity
@@ -358,8 +356,8 @@ end
 to-report angle-shaping
   ; angle shaping value
   ; arccos((vector-pred1-prey * vector-pred2-prey) / (abs(vector-pred1-prey)* abs(vector-pred2-prey)))
-  let pred1-x [xcor] of myself
-  let pred1-y [ycor] of myself
+  let pred1-x xcor
+  let pred1-y ycor
   let pred2-x (reduce + ([xcor] of predators)) - pred1-x
   let pred2-y (reduce + ([ycor] of predators)) - pred1-y
   let prey-x reduce + ([xcor] of preys)
@@ -717,23 +715,6 @@ number-of-runs
 1
 0
 Number
-
-BUTTON
-345
-565
-432
-598
-debug1
-debug1
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?
