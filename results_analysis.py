@@ -70,22 +70,11 @@ def full_perfomance_report(learning_algorithm: str, save_graph_png: bool = True)
 		# print performance
 		print(f"\nPerformance for {learning_algorithm}...")
 		print_performance_report(ticks_per_episode)
-		if learning_algorithm == "ranking_voting_ensemble":
-			ticks_per_episode[:, 320:345] = 3520
-			ticks_per_episode[:, 375:425] = 3450
-			ticks_per_episode[:, 455:520] = 3400
-			ticks_per_episode[:, 1325:1450] = 2700
-			oi = 150
-		elif learning_algorithm == "majority_voting_ensemble":
-			ticks_per_episode[:, 810:890] = 4300
-			oi = 150
-		else:
-			oi = 30
 
 		# save graph
 		if save_graph_png is True:
 			graph_png_path = output_folder_path + "/graph.png"
-		show_graph(ticks_per_episode, smooth_factor=oi, graph_png_path=graph_png_path)
+		show_graph(ticks_per_episode, smooth_factor=30, graph_png_path=graph_png_path)
 	else:
 		print(f"\nResults not found for {learning_algorithm} !")
 		
