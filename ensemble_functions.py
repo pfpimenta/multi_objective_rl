@@ -1,4 +1,3 @@
-# pra debugar msm
 import numpy as np
 
 
@@ -27,7 +26,6 @@ def row_to_ranking(prob_row):
 		i = i - 1
 	return ranking
 
-
 def ranking_voting(row_proximity, row_angle, row_separation):
 	ranking_proximity = row_to_ranking(row_proximity)
 	ranking_angle = row_to_ranking(row_angle)
@@ -35,12 +33,3 @@ def ranking_voting(row_proximity, row_angle, row_separation):
 	ranking = ranking_proximity + ranking_angle + ranking_separation
 	action = np.argmax(ranking)
 	return action
-
-
-
-# # DEBUG
-# row_proximity = [0.1, 0.2, 0.3, 0.4, 0.5]
-# row_angle = [0.5, 0.6, 0.7, 0.2, 0.3]
-# row_separation = [0.5, 0.4, 0.33, 0.32, 0.31]
-# majority_voting(row_proximity, row_angle, row_separation)
-# ranking_voting(row_proximity, row_angle, row_separation)

@@ -313,7 +313,7 @@ to set-reward
   if was_captured
   [set r (r + 1)]
   if learning_algorithm = "proximity_shaping"
-  [set r (r + (shaping_factor * proximity-shaping))]
+  [set r (r + (proximity-shaping))]
 ;    [set r (r + proximity-shaping)]
   if learning_algorithm = "angle_shaping"
   [set r (r + angle-shaping)]
@@ -594,7 +594,7 @@ CHOOSER
 learning_algorithm
 learning_algorithm
 "no_shaping" "proximity_shaping" "angle_shaping" "separation_shaping" "linear_scalarization"
-2
+4
 
 INPUTBOX
 20
@@ -653,22 +653,11 @@ normalize_shapings
 
 INPUTBOX
 20
-485
-115
-545
-shaping_factor
-0.5
-1
-0
-Number
-
-INPUTBOX
-20
 225
 110
 285
 number-of-runs
-5.0
+10.0
 1
 0
 Number
