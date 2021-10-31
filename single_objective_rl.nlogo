@@ -13,7 +13,6 @@ globals [
   min_y
   max_x
   max_y
-  is_training
   was_captured ; True if the prey was captured in this step
   ticks-per-episode
   run-number
@@ -43,7 +42,6 @@ to setup
   setup-grid-size
   create-agents
   set was_captured False
-  set is_training True
   ask predators [update-state]
   reset-ticks
 end
@@ -77,7 +75,6 @@ end
 to reset-run
   create-agents
   set was_captured False
-  set is_training True
   ask predators [
     update-state
     set last-state state
@@ -87,7 +84,6 @@ end
 ; to be called before a new episode begins
 to reset-episode
   set was_captured False
-  set is_training True
   reset-positions
   reset-ticks
 end
@@ -122,13 +118,7 @@ end
 
 to go
   print "\nStarting simulation..."
-  ; TODO : loopar 1000x simulation-step com is_training = True
-  set is_training True ; indicates if the current run is training (will update the agents Q-tables) or not
   run-runs
-
-  ; TODO acho que nao precisa disso:
-  ;  set is_training False
-  ;  simulation-episode
   print "\nEnd."
   stop
 end
@@ -215,9 +205,8 @@ to-report simulation-step
 
   ask predators [set-reward]
 
-  ; update q-tables if in training mode
-  if is_training
-    [ask predators [update-q-table]]
+  ; update q-tables
+  ask predators [update-q-table]
 
   tick
   report was_captured
@@ -594,7 +583,7 @@ CHOOSER
 learning_algorithm
 learning_algorithm
 "no_shaping" "proximity_shaping" "angle_shaping" "separation_shaping" "linear_scalarization"
-4
+3
 
 INPUTBOX
 20
